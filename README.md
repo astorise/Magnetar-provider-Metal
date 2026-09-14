@@ -32,38 +32,59 @@ verify against real Apple Silicon hardware -- exactly the kind of
 confident-but-untested work this repository's development practice avoids
 everywhere else.
 
-## Real Apple Metal support already exists -- it lives elsewhere
+## Relationship to `providers/wgpu` -- not a dead end, a real future need
 
-This crate stays an intentional dead end. Magnetar's real, verified path
-to Apple Metal is
-[`providers/wgpu`](https://github.com/astorise/Magnetar-provider-WGPU): a
-cross-platform GPU compute Provider built on `wgpu`, whose real device
-discovery and compute Kernels are verified on real Vulkan-backed hardware
-(this repository's own development machine) and which selects the real
-Metal backend automatically on macOS, with zero Metal-specific code of
-its own. That crate's own README explains the reasoning in full -- this
-crate exists as the documented record of why hand-written Metal FFI was
-rejected in favor of it.
+[`providers/wgpu`](https://github.com/astorise/Magnetar-provider-WGPU)
+gives Magnetar a real, portable path to Apple GPUs today (Vulkan-verified
+here, selecting the real Metal backend automatically on macOS). But WGSL
+compute shaders -- what `wgpu` compiles down to Metal Shading Language --
+cannot reach Apple Silicon's `simdgroup_matrix` matrix-multiply-accumulate
+instructions (the M-series equivalent of NVIDIA Tensor Cores) or route
+through Metal Performance Shaders to the AMX matrix coprocessor. Neither
+is exposed through `wgpu`'s cross-platform abstraction at all. This
+matters unevenly across the two phases of LLM inference:
+
+- **Decode** (autoregressive, one token at a time): memory-bandwidth-bound,
+  not compute-bound -- `wgpu` should perform close to native Metal here,
+  since Apple's unified memory bandwidth is a hardware property `wgpu`
+  reaches the same way native Metal does.
+- **Prefill** (processing the prompt): compute-bound -- this is exactly
+  where `simdgroup_matrix`/AMX/MPS access matters most, and where a
+  `wgpu`-only path is expected to be substantially slower than native
+  Metal or Apple's own MLX framework. Not measured by this repository
+  (no Apple Silicon hardware available anywhere in its tooling) -- a real,
+  expected gap stated honestly, not a measured one.
+
+So this crate is real, wanted future work, specifically for prefill's
+compute-bound kernels -- not superseded by `providers/wgpu`, which covers
+decode and cross-platform portability well but structurally cannot reach
+Apple's own matrix hardware. **Call for contributors**: if you have real
+Apple Silicon (M-series) hardware, verifying `providers/wgpu`'s Metal
+backend for correctness and measuring the real prefill slowdown against
+native Metal/MLX would be immediately useful and does not require writing
+any new code -- see the numbered list below for what comes after that.
 
 ## What a future contributor with real macOS/Apple Silicon hardware would need to do
 
 1. First, verify `providers/wgpu` actually works correctly through its
-   real Metal backend on real Apple Silicon -- its own real Vulkan-backed
-   tests have never been confirmed to carry over to Metal in practice,
-   only assumed to on `wgpu`'s own cross-backend consistency guarantees.
-   This is very likely the higher-value next step for most real workloads
-   before anything below.
-2. Only if `wgpu`'s abstraction overhead turns out to matter for a real,
-   measured workload: add a real, hand-written Metal binding dependency
-   (the `metal`/`objc2-metal` crates are the established choices in the
-   Rust ecosystem) behind `#[cfg(target_os = "macos")]` in *this* crate,
-   with its current unconditional fallback kept for every other target.
+   real Metal backend on real Apple Silicon, and measure the real prefill
+   throughput gap against native Metal/MLX for a representative model --
+   turning the expected-but-unmeasured gap above into a real number.
+2. Add a real, hand-written Metal binding dependency (the `metal`/
+   `objc2-metal` crates are the established choices in the Rust ecosystem)
+   behind `#[cfg(target_os = "macos")]` in *this* crate, with its current
+   unconditional fallback kept for every other target.
 3. Real device discovery via `MTLCopyAllDevices()`, building
    `magnetar_runtime::device::DeviceDescriptor` values from it, mirroring
    `providers/cuda`'s own `device.rs`.
-4. Real compute Kernels via Metal Shading Language compiled through
-   `MTLDevice::newLibraryWithSource`, and `ProviderExecutionApi`, mirroring
-   `providers/cuda`'s own `CudaKernels`/`CudaExecutor` structure.
+4. Real compute Kernels via Metal Shading Language using `simdgroup_matrix`
+   directly (or routing through Metal Performance Shaders for GEMM, to
+   reach the AMX coprocessor) for the compute-bound prefill kernels
+   specifically (`matmul` above all), and `ProviderExecutionApi`,
+   mirroring `providers/cuda`'s own `CudaKernels`/`CudaExecutor`
+   structure. Decode-phase, memory-bound kernels may not be worth
+   re-implementing natively at all, given step 1's own expectation that
+   `providers/wgpu` already performs close to native there.
 5. Verify every Kernel against `providers/cpu`'s reference implementation
    *and* `providers/wgpu`'s own Metal-backend output on real Apple Silicon
    hardware -- and set up a macOS CI runner (this repository has none
