@@ -1,14 +1,9 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+//! Apple Metal execution Provider for the Magnetar local AI Runtime.
+//!
+//! **Status: structural placeholder, unconditionally unavailable.** See
+//! [`provider::MetalProvider`]'s own module doc comment and this crate's
+//! README for why.
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+mod provider;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub use provider::{MetalProvider, metal_provider_metadata};

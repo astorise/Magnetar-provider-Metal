@@ -1,6 +1,16 @@
+[workspace]
+
 [package]
 name = "magnetar-provider-metal"
 version = "0.1.0"
 edition = "2024"
+# Never published to crates.io independently -- this crate is only
+# buildable from within a checkout of the parent Magnetar repository,
+# matching every other externalized module's own Cargo.toml.
+publish = false
 
 [dependencies]
+# Path dependency, not a published crate: this crate is only buildable
+# from within a checkout of the parent Magnetar repository, with this
+# submodule checked out at `providers/metal`.
+magnetar-runtime = { path = "../../magnetar-runtime" }
