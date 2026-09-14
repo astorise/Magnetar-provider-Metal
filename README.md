@@ -32,25 +32,44 @@ verify against real Apple Silicon hardware -- exactly the kind of
 confident-but-untested work this repository's development practice avoids
 everywhere else.
 
+## Real Apple Metal support already exists -- it lives elsewhere
+
+This crate stays an intentional dead end. Magnetar's real, verified path
+to Apple Metal is
+[`providers/wgpu`](https://github.com/astorise/Magnetar-provider-WGPU): a
+cross-platform GPU compute Provider built on `wgpu`, whose real device
+discovery and compute Kernels are verified on real Vulkan-backed hardware
+(this repository's own development machine) and which selects the real
+Metal backend automatically on macOS, with zero Metal-specific code of
+its own. That crate's own README explains the reasoning in full -- this
+crate exists as the documented record of why hand-written Metal FFI was
+rejected in favor of it.
+
 ## What a future contributor with real macOS/Apple Silicon hardware would need to do
 
-1. Add a real Metal binding dependency (the `metal`/`objc2-metal` crates
-   are the established choices in the Rust ecosystem) behind
-   `#[cfg(target_os = "macos")]`, with this crate's current unconditional
-   fallback kept for every other target.
-2. Real device discovery via `MTLCopyAllDevices()`, building
+1. First, verify `providers/wgpu` actually works correctly through its
+   real Metal backend on real Apple Silicon -- its own real Vulkan-backed
+   tests have never been confirmed to carry over to Metal in practice,
+   only assumed to on `wgpu`'s own cross-backend consistency guarantees.
+   This is very likely the higher-value next step for most real workloads
+   before anything below.
+2. Only if `wgpu`'s abstraction overhead turns out to matter for a real,
+   measured workload: add a real, hand-written Metal binding dependency
+   (the `metal`/`objc2-metal` crates are the established choices in the
+   Rust ecosystem) behind `#[cfg(target_os = "macos")]` in *this* crate,
+   with its current unconditional fallback kept for every other target.
+3. Real device discovery via `MTLCopyAllDevices()`, building
    `magnetar_runtime::device::DeviceDescriptor` values from it, mirroring
    `providers/cuda`'s own `device.rs`.
-3. Real compute Kernels via Metal Shading Language compiled through
+4. Real compute Kernels via Metal Shading Language compiled through
    `MTLDevice::newLibraryWithSource`, and `ProviderExecutionApi`, mirroring
-   `providers/cuda`'s own `CudaKernels`/`CudaExecutor` structure (a
-   different real GPU compute API, but the same Runtime-facing contract).
-4. Verify every Kernel against `providers/cpu`'s reference implementation
-   on real Apple Silicon hardware, the same `provider-compute` conformance
-   profile `providers/cuda` already passes for CUDA -- and set up a macOS
-   CI runner (this repository has none today; `providers/cuda`'s own
-   real-hardware verification runs on a self-hosted `arc-gpu-magnetar`
-   runner, the precedent to follow for a macOS equivalent).
+   `providers/cuda`'s own `CudaKernels`/`CudaExecutor` structure.
+5. Verify every Kernel against `providers/cpu`'s reference implementation
+   *and* `providers/wgpu`'s own Metal-backend output on real Apple Silicon
+   hardware -- and set up a macOS CI runner (this repository has none
+   today; `providers/cuda`'s own real-hardware verification runs on a
+   self-hosted `arc-gpu-magnetar` runner, the precedent to follow for a
+   macOS equivalent).
 
 ## Governing contract
 
