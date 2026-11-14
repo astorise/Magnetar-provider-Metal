@@ -27,8 +27,10 @@
 //! for real Metal support. See this crate's own README for what a future
 //! contributor with real macOS/Apple Silicon hardware would need to do.
 
-use magnetar_runtime::affinity::ProviderHealth;
-use magnetar_runtime::provider::{Provider, ProviderError, ProviderMetadata, ProviderRegistry};
+use magnetar_core::provider_status::ProviderHealth;
+use magnetar_provider_api::provider_api::{
+    Provider, ProviderError, ProviderMetadata, ProviderRegistry,
+};
 
 const METAL_PROVIDER_NAME: &str = "metal";
 const METAL_PROVIDER_VERSION: &str = env!("CARGO_PKG_VERSION");
