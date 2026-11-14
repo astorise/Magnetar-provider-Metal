@@ -75,7 +75,7 @@ any new code -- see the numbered list below for what comes after that.
    behind `#[cfg(target_os = "macos")]` in *this* crate, with its current
    unconditional fallback kept for every other target.
 3. Real device discovery via `MTLCopyAllDevices()`, building
-   `magnetar_runtime::device::DeviceDescriptor` values from it, mirroring
+   `magnetar_core::device::DeviceDescriptor` values from it, mirroring
    `providers/cuda`'s own `device.rs`.
 4. Real compute Kernels via Metal Shading Language using `simdgroup_matrix`
    directly (or routing through Metal Performance Shaders for GEMM, to
@@ -108,6 +108,10 @@ never the reverse -- `magnetar-runtime` has zero compile-time dependency
 on this crate (the same externalization invariant every Provider/Component/
 Format module in this workspace observes). It is pinned into the main
 Magnetar repository as a git submodule at `providers/metal`.
+
+This crate depends on `magnetar-provider-api` (the Provider contract) and
+`magnetar-core`, not on `magnetar-runtime`: Runtime changes above those layers
+no longer reach its lockfile.
 
 ## Continuous integration
 
